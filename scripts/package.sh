@@ -16,7 +16,7 @@
 # `git describe --always --tags`
 #
 
-INSTALL_ROOT_DIR=/opt/influxdb-zabbix
+INSTALL_ROOT_DIR=/opt/go/influxdb-zabbix
 CONFIG_ROOT_DIR=/etc/influxdb-zabbix
 CONFIG_FILE=influxdb-zabbix.conf
 PROG_LOG_DIR=/var/log/influxdb-zabbix
@@ -34,8 +34,8 @@ WORK_DIR=''
 POST_INSTALL_PATH=$(mktemp)
 ARCH=$(uname -i)
 LICENSE=MIT
-URL=https://github.com/zensqlmonitor/influxdb-zabbix
-MAINTAINER=sqlzen@hotmail.com
+URL=https://github.com/PedroVelezSilva/influxdb-zabbix.git
+MAINTAINER=pedro.silva@hoistgroup.com
 VENDOR=sqlzenmonitor
 DESCRIPTION="Gather data from Zabbix back-end and load to InfluxDB in near real-time"
 PKG_DEPS=(coreutils)

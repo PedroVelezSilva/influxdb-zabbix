@@ -13,13 +13,18 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	//"bytes"
+	//regexp"
+	//"context"
+	"github.com/influxdata/influxdb-client-go/v2"
 
-	cfg "github.com/zensqlmonitor/influxdb-zabbix/config"
-	helpers "github.com/zensqlmonitor/influxdb-zabbix/helpers"
-	input "github.com/zensqlmonitor/influxdb-zabbix/input"
-	log "github.com/zensqlmonitor/influxdb-zabbix/log"
-	influx "github.com/zensqlmonitor/influxdb-zabbix/output/influxdb"
-	registry "github.com/zensqlmonitor/influxdb-zabbix/reg"
+
+	cfg "github.com/PedroVelezSilva/influxdb-zabbix/config"
+	helpers "github.com/PedroVelezSilva/influxdb-zabbix/helpers"
+	input "github.com/PedroVelezSilva/influxdb-zabbix/input"
+	log "github.com/PedroVelezSilva/influxdb-zabbix/log"
+//	influx "github.com/PedroVelezSilva/influxdb-zabbix/output/influxdb"
+	registry "github.com/PedroVelezSilva/influxdb-zabbix/reg"
 )
 
 var m runtime.MemStats
@@ -86,6 +91,7 @@ func (p *Param) gatherData() error {
 			return err
 		}
 	}
+
 	var starttimestr string = strconv.FormatInt(startimerfc.Unix(), 10)
 	var endtimetmp time.Time = startimerfc.Add(time.Hour * time.Duration(p.input.hoursperbatch))
 	var endtimestr string = strconv.FormatInt(endtimetmp.Unix(), 10)
@@ -147,17 +153,76 @@ func (p *Param) gatherData() error {
 
 			inlineData = strings.Join(ext.Result[:], "\n")
 
-			loa := influx.NewLoader(
-				fmt.Sprintf(
-					"%s/write?db=%s&precision=%s",
-					p.output.address,
-					p.output.database,
-					p.output.precision),
-				p.output.username,
-				p.output.password,
-				inlineData)
+				client := influxdb2.NewClient("url", "<token>")
+				// always close client at the end
+							
+				// get non-blocking write client
+				writeAPI := client.WriteAPI("<username>", "<bucket>")
 
-			if err := loa.Load(); err != nil {
+				//SPLIT EACH LINE IN inlineData
+				lineData := strings.Split(inlineData, "\n")	
+				//FOR EACH LINE OF inlineData 
+				for i := 0; i < len(lineData); i++ {
+				
+				//REMOVE ALL back slashes
+					clearBackSlash := strings.ReplaceAll(lineData[i], "\\", "")
+					lineData[i] = clearBackSlash
+				//	fmt.Println("DEBUG LINE:\n", i, lineData[i] )
+				//SPLIT EACH FIELD FOR PARSING on , 
+					lineFields := strings.Split(lineData[i], ",")
+				//	fmt.Println("DEBUGGING FIELDS from Line ", i);
+				//FOR EACH FIELD SWAP whitespaces with _
+					newLine :=""
+					for l:=0; l < len(lineFields); l++{
+						if(l<3){
+						    lineFields[l]= strings.ReplaceAll(lineFields[l], " ", "_")
+				//			fmt.Println("Field\n",l, lineFields[l]);
+							newLine += lineFields[l] + ","
+						}else{
+					// LAST FIELD is COMBO application + value + timestamp
+					// SPLITING string on"value" keyword
+							if len(lineFields) > 4{
+								fmt.Println("\nline with more than 1 key value pair\n")
+								fmt.Println("lineFields ", l, lineFields[l])
+								//IF more than 4 value key pairs position 3 is populated with "applications=XXXXX value_min=XXXXXX" so split and clear spaces in applications
+								if l==3 {
+									appandval := strings.Split(lineFields[l], "value")
+									appandval[0] = strings.ReplaceAll(appandval[0], " ", "")
+									appandval[1] = "value"+appandval[1]
+									reconcat := appandval[0] + " " + appandval[1]
+									lineFields[l] =  reconcat
+								}
+								if l==4 {
+									newLine+=lineFields[l]+","
+								}else if l<len(lineFields)-1{
+									newLine+=lineFields[l]+","
+								}else{
+									lineFields[l] = strings.ReplaceAll(lineFields[l], " ", "")
+									newLine+=lineFields[l]
+								}
+								fmt.Println("newLine with more than 1 key value pair: ", newLine)	
+							}else{
+								applicationValueTimeStamp := strings.Split(lineFields[l], "value")
+								//fmt.Println("DEBUG applicationValueTimeStamp:\n")
+								//CLEANING WHITESPACES from "applications" value
+								applicationValueTimeStamp[0] = strings.ReplaceAll(applicationValueTimeStamp[0]," ", "")
+								//Re-adding value key
+								applicationValueTimeStamp[1] = "value" + applicationValueTimeStamp[1]	
+								newLine += applicationValueTimeStamp[0] + " "
+								newLine += applicationValueTimeStamp[1]
+							}
+						}
+					} 
+					fmt.Println("FINAL CLEAN MEASUREMENT: \n", newLine)
+					writeAPI.WriteRecord(fmt.Sprintf(newLine))
+					// Flush writes
+					writeAPI.Flush()
+				}
+				
+				defer client.Close()
+
+			//if err := loa.Load(); err != nil {
+			if err != nil {
 				log.Error(1, "Error while loading data for %s. %s", currTable, err)
 				return err
 			}
@@ -197,46 +262,102 @@ func (p *Param) gatherData() error {
 
 				inlineData = strings.Join(datapart[:], "\n")
 
-				startwatch = time.Now()
-				loa := influx.NewLoader(
-					fmt.Sprintf(
-						"%s/write?db=%s&precision=%s",
-						p.output.address,
-						p.output.database,
-						p.output.precision),
-					p.output.username,
-					p.output.password,
-					inlineData)
 
-				if err := loa.Load(); err != nil {
+				startwatch = time.Now()
+						
+				client := influxdb2.NewClient("<url>", "<token>")
+				// always close client at the end
+				
+				
+				// get non-blocking write client
+				writeAPI := client.WriteAPI("<username>", "<bucket>")
+
+				
+
+				//SPLIT EACH LINE IN inlineData
+				lineData := strings.Split(inlineData, "\n")	
+				//FOR EACH LINE OF inlineData 
+				for i := 0; i < len(lineData); i++ {
+				//REMOVE ALL back slashes
+					clearBackSlash := strings.ReplaceAll(lineData[i], "\\", "")
+					lineData[i] = clearBackSlash
+				//	fmt.Println("DEBUG LINE:\n", i, lineData[i] )
+				//SPLIT EACH FIELD FOR PARSING on , 
+					lineFields := strings.Split(lineData[i], ",")
+				//	fmt.Println("DEBUGGING FIELDS from Line ", i);
+				//FOR EACH FIELD SWAP whitespaces with _
+					newLine :=""
+					for l:=0; l < len(lineFields); l++{
+						if(l<3){
+						    lineFields[l]= strings.ReplaceAll(lineFields[l], " ", "_")
+				//			fmt.Println("Field\n",l, lineFields[l]);
+							newLine += lineFields[l] + ","
+						}else{
+					// LAST FIELD is COMBO application + value + timestamp
+					// SPLITING string on"value" keyword
+							if len(lineFields) > 4{
+								fmt.Println("\nline with more than 1 key value pair\n")
+								fmt.Println("lineFields ", l, lineFields[l])
+								//IF more than 4 value key pairs position 3 is populated with "applications=XXXXX value_min=XXXXXX" so split and clear spaces in applications
+								if l==3 {	
+									appandval := strings.Split(lineFields[l], "value")
+									appandval[0] = strings.ReplaceAll(appandval[0], " ", "")
+									appandval[1] = "value"+appandval[1]
+									reconcat := appandval[0] + " " + appandval[1]
+									lineFields[l] =  reconcat
+								}
+
+								if l==4 {
+									newLine+=lineFields[l]+","
+								}else if l<len(lineFields)-1{
+									newLine+=lineFields[l]+","
+								}else{
+									newLine+=lineFields[l]
+								}
+								fmt.Println("newLine with more than 1 key value pair: ", newLine)
+							}else{
+								applicationValueTimeStamp := strings.Split(lineFields[l], "value")
+								//fmt.Println("DEBUG applicationValueTimeStamp:\n")
+								//CLEANING WHITESPACES from "applications" value
+								applicationValueTimeStamp[0] = strings.ReplaceAll(applicationValueTimeStamp[0]," ", "")
+								//Re-adding value key
+								applicationValueTimeStamp[1] = "value" + applicationValueTimeStamp[1]
+			
+								newLine += applicationValueTimeStamp[0] + " "
+								newLine += applicationValueTimeStamp[1]
+							}
+						}
+					} 
+					fmt.Println("FINAL CLEAN MEASUREMENT: \n", newLine)
+					writeAPI.WriteRecord(fmt.Sprintf(newLine))
+					// Flush writes
+					writeAPI.Flush()
+				}
+				defer client.Close()
+				
+				//if err := loa.Load(); err != nil {
+				if err != nil {
 					log.Error(1, "Error while loading data for %s. %s", currTable, err)
 					return err
 				}
-
 				// log
 				tableBatchName := fmt.Sprintf("%s (%v/%v)",
 					currTable,
 					batchLoops,
 					batchesCeiled)
-
 				tlen = len(tableBatchName)
-
 				infoLogs = append(infoLogs,
 					fmt.Sprintf("--> Load    | %s | %v rows in %s",
 						helpers.RightPad(tableBatchName, " ", 13-tlen),
 						len(datapart),
 						time.Since(startwatch)))
-
 				batchLoops += 1
 				batches -= 1
-
 			} // end while
 		}
 	}
-
 	// Save in registry
 	saveMaxTime(currTable, startimerfc, maxclock, p.input.hoursperbatch)
-
 	tlen = len(currTable)
 	infoLogs = append(infoLogs,
 		fmt.Sprintf("--- Waiting | %s | %v sec ",

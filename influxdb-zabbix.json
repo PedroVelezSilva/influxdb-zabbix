@@ -1,0 +1,18 @@
+[
+    {
+        "Table": "history",
+        "Startdate": "2022-01-21T23:49:13Z"
+    },
+    {
+        "Table": "history_uint",
+        "Startdate": "2021-12-31T00:00:00Z"
+    },
+    {
+        "Table": "trends",
+        "Startdate": "2022-01-21T22:00:00Z"
+    },
+    {
+        "Table": "trends_uint",
+        "Startdate": "2022-01-21T22:00:00Z"
+    }
+]
